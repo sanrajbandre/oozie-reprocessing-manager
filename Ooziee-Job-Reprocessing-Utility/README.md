@@ -6,7 +6,7 @@ Production-focused Oozie rerun/reprocessing manager.
 - Frontend: React + Vite (TypeScript)
 - API: FastAPI + JWT + RBAC + WebSocket
 - Worker: Python background executor with plan-level concurrency
-- Storage: MariaDB/MySQL (SQLite optional for local dev)
+- Storage: MySQL 8.x (primary), MariaDB compatible, SQLite optional for local dev
 - Messaging: Redis Pub/Sub
 - Deployment: systemd + nginx on Rocky Linux 9.x / CentOS Stream 9
 
@@ -21,6 +21,7 @@ Production-focused Oozie rerun/reprocessing manager.
 - Hardened systemd units (non-root, tighter service sandboxing)
 - Nginx production reverse proxy + static frontend config
 - Deployment scripts for Rocky/CentOS 9
+- MySQL 8.x runtime/version checks and auth plugin support
 
 ## Quick links
 - Deployment steps: `docs/DEPLOYMENT.md`
