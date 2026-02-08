@@ -5,7 +5,7 @@
 - `backend` (FastAPI + gunicorn workers) provides REST, auth, RBAC, websocket endpoint.
 - `worker` polls runnable plans and executes Oozie rerun tasks with per-plan concurrency.
 - `redis` carries event fanout so websocket updates work across multiple API processes.
-- `mariadb/mysql` stores users, plans, and task execution state.
+- `mysql 8.x` (or mariadb-compatible server) stores users, plans, and task execution state.
 
 ## Execution flow
 1. Admin creates plan and tasks in API.

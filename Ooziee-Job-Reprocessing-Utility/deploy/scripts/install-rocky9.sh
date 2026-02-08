@@ -11,6 +11,9 @@ APP_GROUP="${APP_GROUP:-ooziemgr}"
 APP_DIR="${APP_DIR:-/opt/oozie-reprocessing-manager}"
 ENV_DIR="/etc/oozie-reprocessing"
 ENV_FILE="${ENV_DIR}/oozie-reprocess.env"
+DB_FLAVOR="${DB_FLAVOR:-mysql8}" # mysql8 | mariadb
+MYSQL_REPO_RPM="${MYSQL_REPO_RPM:-https://repo.mysql.com/mysql80-community-release-el9-1.noarch.rpm}"
+DB_SERVICE=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -20,14 +23,35 @@ dnf install -y \
   gcc gcc-c++ make \
   python3 python3-pip python3-devel \
   nodejs npm \
+  dnf-plugins-core \
   git rsync \
   redis \
-  mariadb-server mariadb \
   nginx
+
+if [[ "${DB_FLAVOR}" == "mysql8" ]]; then
+  echo "[1/8] Installing MySQL 8.x server packages..."
+  if ! rpm -q mysql80-community-release >/dev/null 2>&1; then
+    dnf install -y "${MYSQL_REPO_RPM}"
+  fi
+
+  if ! dnf install -y mysql-community-server mysql-community-client; then
+    echo "Failed to install MySQL 8.x packages."
+    echo "Either fix MySQL repo configuration or run with DB_FLAVOR=mariadb."
+    exit 1
+  fi
+  DB_SERVICE="mysqld"
+elif [[ "${DB_FLAVOR}" == "mariadb" ]]; then
+  echo "[1/8] Installing MariaDB server packages..."
+  dnf install -y mariadb-server mariadb
+  DB_SERVICE="mariadb"
+else
+  echo "Unsupported DB_FLAVOR='${DB_FLAVOR}'. Allowed values: mysql8, mariadb"
+  exit 1
+fi
 
 echo "[2/8] Enabling base services..."
 systemctl enable --now redis
-systemctl enable --now mariadb
+systemctl enable --now "${DB_SERVICE}"
 systemctl enable --now nginx
 
 echo "[3/8] Creating application service account..."
@@ -72,6 +96,9 @@ systemctl enable --now nginx
 echo "[8/8] Deployment bootstrap complete."
 echo "Next steps:"
 echo "  1) Create DB and user, then load schema: ${APP_DIR}/scripts/mysql_schema.sql"
+if [[ "${DB_SERVICE}" == "mysqld" ]]; then
+  echo "     - For first MySQL 8.x setup, get temporary root password: grep 'temporary password' /var/log/mysqld.log"
+fi
 echo "  2) Edit ${ENV_FILE} with DB/JWT/Oozie values"
-echo "  3) Start services: systemctl enable --now oozie-reprocess-api oozie-reprocess-worker"
+echo "  3) Start services: systemctl enable --now oozie-reprocess-api oozie-reprocess-worker ${DB_SERVICE}"
 echo "  4) Verify: systemctl status oozie-reprocess-api oozie-reprocess-worker && curl -sS http://127.0.0.1:8000/ready"
