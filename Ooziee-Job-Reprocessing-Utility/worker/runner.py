@@ -13,10 +13,10 @@ from threading import Event
 from typing import Dict, List, Set, Tuple
 
 import redis
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
+from app.db import build_engine  # type: ignore
 from app.models import Plan, Task  # type: ignore
 from app.oozie import OozieClient  # type: ignore
 from app.settings import Settings  # type: ignore
@@ -29,7 +29,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-ENGINE = create_engine(settings.db_url, pool_pre_ping=True)
+ENGINE = build_engine(settings.db_url)
 SessionLocal = sessionmaker(bind=ENGINE, autocommit=False, autoflush=False)
 
 REDIS = redis.from_url(settings.redis_url, decode_responses=True)

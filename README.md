@@ -1,6 +1,6 @@
 # Oozie Reprocessing Manager
 
-Enterprise-grade Oozie rerun/reprocessing manager built for production operations on Linux servers.
+Enterprise-grade Oozie rerun/reprocessing manager (React + FastAPI + MySQL 8.x + WebSocket + RBAC).
 
 ## What This Project Solves
 

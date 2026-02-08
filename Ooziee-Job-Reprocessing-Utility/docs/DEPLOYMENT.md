@@ -6,7 +6,7 @@ This guide deploys:
 - FastAPI API (`127.0.0.1:8000` via systemd + gunicorn)
 - Worker service (systemd)
 - Redis (events + websocket fanout)
-- MariaDB/MySQL (persistent storage)
+- MySQL 8.x (default) or MariaDB (optional)
 - Nginx (frontend static files + reverse proxy)
 
 ## 1) Server prerequisites
@@ -33,8 +33,17 @@ cd /opt/oozie-reprocessing-manager/Ooziee-Job-Reprocessing-Utility
 sudo bash deploy/scripts/install-rocky9.sh
 ```
 
+Defaults:
+- `DB_FLAVOR=mysql8` (recommended for this release)
+
+Optional MariaDB install:
+
+```bash
+sudo DB_FLAVOR=mariadb bash deploy/scripts/install-rocky9.sh
+```
+
 What the script does:
-- Installs Python/Node/Nginx/Redis/MariaDB packages
+- Installs Python/Node/Nginx/Redis packages plus selected database server
 - Creates system user `ooziemgr`
 - Syncs app to `/opt/oozie-reprocessing-manager`
 - Builds backend/worker virtualenvs
@@ -44,6 +53,15 @@ What the script does:
 
 ## 4) Initialize database
 
+If using MySQL 8.x, set root password first (fresh installs only):
+
+```bash
+sudo grep 'temporary password' /var/log/mysqld.log | tail -n 1
+mysql --connect-expired-password -uroot -p
+# then run in mysql shell:
+# ALTER USER 'root'@'localhost' IDENTIFIED BY 'REPLACE_ROOT_PASSWORD';
+```
+
 Set root DB password (example shown):
 
 ```bash
@@ -52,6 +70,7 @@ export DB_NAME='oozie_reprocess'
 export DB_USER='ooziemgr'
 export DB_PASS='REPLACE_DB_PASSWORD'
 export DB_HOST='127.0.0.1'
+export DB_AUTH_PLUGIN='caching_sha2_password'
 
 sudo -E bash /opt/oozie-reprocessing-manager/deploy/scripts/init-db.sh
 ```
@@ -78,8 +97,10 @@ First-time bootstrap only:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now oozie-reprocess-api oozie-reprocess-worker nginx redis mariadb
+sudo systemctl enable --now oozie-reprocess-api oozie-reprocess-worker nginx redis mysqld
 ```
+
+If installed with `DB_FLAVOR=mariadb`, replace `mysqld` with `mariadb`.
 
 ## 7) Validate deployment
 
