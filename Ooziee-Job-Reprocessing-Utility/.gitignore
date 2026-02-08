@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.tmp-test-venv/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+.npm-cache/
+
+# Local runtime files
+*.log
+.env
+backend/.env
+worker/.env
+
+# IDE
+.vscode/
+.idea/

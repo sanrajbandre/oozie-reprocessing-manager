@@ -8,6 +8,16 @@ from ..events import publish_event
 
 router = APIRouter(prefix="/api/plans", tags=["plans"])
 
+ALLOWED_TRANSITIONS = {
+    "DRAFT": {"RUNNING", "STOPPED"},
+    "RUNNING": {"PAUSED", "STOPPED"},
+    "PAUSED": {"RUNNING", "STOPPED"},
+    "STOPPED": {"RUNNING"},
+    "FAILED": {"RUNNING"},
+    "COMPLETED": {"RUNNING"},
+}
+
+
 @router.post("", response_model=schemas.PlanOut)
 def create_plan(body: schemas.PlanCreate, db: Session = Depends(get_db), user=Depends(require_role("admin"))):
     p = models.Plan(
@@ -15,8 +25,8 @@ def create_plan(body: schemas.PlanCreate, db: Session = Depends(get_db), user=De
         description=body.description or "",
         status="DRAFT",
         oozie_url=body.oozie_url or "",
-        use_rest=bool(body.use_rest),
-        max_concurrency=int(body.max_concurrency or 1),
+        use_rest=body.use_rest,
+        max_concurrency=body.max_concurrency,
         created_by=user.username,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -62,6 +72,21 @@ def _set_plan_status(db: Session, plan_id: int, status: str):
     p = db.query(models.Plan).filter(models.Plan.id == plan_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="plan not found")
+    allowed = ALLOWED_TRANSITIONS.get(p.status, set())
+    if status not in allowed and p.status != status:
+        raise HTTPException(
+            status_code=409,
+            detail=f"cannot transition plan from {p.status} to {status}",
+        )
+
+    if status == "RUNNING":
+        # Allow restarting a completed/failed/stopped plan by requeueing terminal tasks.
+        if p.status in ("STOPPED", "FAILED", "COMPLETED"):
+            db.query(models.Task).filter(
+                models.Task.plan_id == plan_id,
+                models.Task.status.in_(["FAILED", "CANCELED", "SKIPPED"]),
+            ).update({"status": "PENDING"}, synchronize_session=False)
+
     p.status = status
     p.updated_at = datetime.utcnow()
     db.commit()
@@ -86,7 +111,10 @@ def resume_plan(plan_id: int, db: Session = Depends(get_db), _=Depends(require_r
 @router.post("/{plan_id}/stop", response_model=schemas.PlanActionResponse)
 def stop_plan(plan_id: int, db: Session = Depends(get_db), _=Depends(require_role("admin"))):
     p = _set_plan_status(db, plan_id, "STOPPED")
-    db.query(models.Task).filter(models.Task.plan_id==plan_id, models.Task.status=="PENDING").update({"status":"CANCELED"})
+    db.query(models.Task).filter(
+        models.Task.plan_id == plan_id,
+        models.Task.status == "PENDING",
+    ).update({"status": "CANCELED"}, synchronize_session=False)
     db.commit()
-    publish_event({"event":"plan_stopped","plan_id":plan_id})
+    publish_event({"event": "plan_stopped", "plan_id": plan_id})
     return schemas.PlanActionResponse(plan_id=p.id, status=p.status)

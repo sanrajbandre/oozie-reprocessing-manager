@@ -18,8 +18,9 @@ def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
 def create_access_token(username: str, role: str) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": username, "role": role, "exp": expire}
+    issued_at = datetime.utcnow()
+    expire = issued_at + timedelta(minutes=settings.jwt_expire_minutes)
+    payload = {"sub": username, "role": role, "iat": issued_at, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 def decode_token(token: str) -> dict:

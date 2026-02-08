@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == body.username).first()
+    user = db.query(models.User).filter(models.User.username == body.username.strip()).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not verify_password(body.password, user.password_hash):
@@ -22,8 +22,6 @@ def me(user=Depends(get_current_user)):
 
 @router.post("/users", response_model=schemas.UserOut)
 def create_user(body: schemas.UserCreate, db: Session = Depends(get_db), _=Depends(require_role("admin"))):
-    if body.role not in ("admin", "viewer"):
-        raise HTTPException(status_code=400, detail="role must be admin or viewer")
     if db.query(models.User).filter(models.User.username == body.username).first():
         raise HTTPException(status_code=409, detail="username already exists")
     u = models.User(username=body.username, password_hash=hash_password(body.password), role=body.role, is_active=True)

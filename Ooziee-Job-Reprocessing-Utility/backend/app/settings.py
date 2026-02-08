@@ -1,10 +1,15 @@
-from pydantic_settings import BaseSettings
+from typing import List, Optional
+
 from pydantic import Field
-from typing import List
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
-    db_url: str = Field(alias="DB_URL")
-    jwt_secret: str = Field(alias="JWT_SECRET")
+    app_env: str = Field(default="development", alias="APP_ENV")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    db_url: str = Field(default="sqlite:///./oozie_reprocess.db", alias="DB_URL")
+    jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET")
     jwt_expire_minutes: int = Field(default=720, alias="JWT_EXPIRE_MINUTES")
 
     redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
@@ -15,14 +20,37 @@ class Settings(BaseSettings):
     oozie_default_url: str = Field(default="", alias="OOZIE_DEFAULT_URL")
     oozie_http_timeout: int = Field(default=30, alias="OOZIE_HTTP_TIMEOUT")
 
-    bootstrap_admin_user: str = Field(default="admin", alias="BOOTSTRAP_ADMIN_USER")
-    bootstrap_admin_pass: str = Field(default="admin123", alias="BOOTSTRAP_ADMIN_PASS")
+    auto_create_schema: bool = Field(default=False, alias="AUTO_CREATE_SCHEMA")
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    bootstrap_admin_enabled: bool = Field(default=False, alias="BOOTSTRAP_ADMIN_ENABLED")
+    bootstrap_admin_user: str = Field(default="admin", alias="BOOTSTRAP_ADMIN_USER")
+    bootstrap_admin_pass: Optional[str] = Field(default=None, alias="BOOTSTRAP_ADMIN_PASS")
+
+    enforce_secure_defaults: bool = Field(default=False, alias="ENFORCE_SECURE_DEFAULTS")
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     def cors_list(self) -> List[str]:
         return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
+
+    def is_production(self) -> bool:
+        return self.app_env.lower() in {"prod", "production"}
+
+    def validate_runtime(self) -> None:
+        secure_mode = self.enforce_secure_defaults or self.is_production()
+
+        if self.jwt_expire_minutes < 5:
+            raise RuntimeError("JWT_EXPIRE_MINUTES must be >= 5")
+
+        if secure_mode:
+            if len(self.jwt_secret.strip()) < 24 or self.jwt_secret == "change-me-in-production":
+                raise RuntimeError("JWT_SECRET is too weak for production mode")
+
+        if self.bootstrap_admin_enabled:
+            if not self.bootstrap_admin_pass:
+                raise RuntimeError("BOOTSTRAP_ADMIN_PASS is required when BOOTSTRAP_ADMIN_ENABLED=true")
+            if secure_mode and self.bootstrap_admin_pass == "admin123":
+                raise RuntimeError("Default bootstrap admin password is not allowed in production mode")
+
 
 settings = Settings()

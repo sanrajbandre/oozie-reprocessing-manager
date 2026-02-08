@@ -7,8 +7,8 @@ type Plan = {
 }
 
 function Login({onDone}:{onDone:()=>void}) {
-  const [username,setUsername] = useState('admin');
-  const [password,setPassword] = useState('admin123');
+  const [username,setUsername] = useState('');
+  const [password,setPassword] = useState('');
   const [err,setErr] = useState<string|null>(null);
 
   async function submit(e:any){
@@ -28,7 +28,7 @@ function Login({onDone}:{onDone:()=>void}) {
     <div className="container">
       <div className="card">
         <h2>Login</h2>
-        <p className="muted">Use your admin/viewer credentials</p>
+        <p className="muted">Use your admin/viewer credentials. Default credentials are disabled in production.</p>
         <form onSubmit={submit}>
           <div className="row">
             <div className="col">

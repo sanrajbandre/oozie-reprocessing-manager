@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS plans (
   max_concurrency INT NOT NULL DEFAULT 1,
   created_by VARCHAR(128),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -59,3 +59,5 @@ CREATE TABLE IF NOT EXISTS tasks (
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_tasks_plan_status ON tasks(plan_id, status);
+CREATE INDEX idx_plans_status ON plans(status);
+CREATE INDEX idx_tasks_status ON tasks(status);

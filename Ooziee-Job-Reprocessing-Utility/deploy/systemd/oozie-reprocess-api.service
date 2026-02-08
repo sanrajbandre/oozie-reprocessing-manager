@@ -1,15 +1,31 @@
 [Unit]
 Description=Oozie Reprocessing Manager API (FastAPI)
-After=network.target redis.service mysqld.service mariadb.service
+After=network-online.target redis.service mysqld.service mariadb.service
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
+User=ooziemgr
+Group=ooziemgr
 WorkingDirectory=/opt/oozie-reprocessing-manager/backend
-EnvironmentFile=/opt/oozie-reprocessing-manager/backend/.env
-ExecStart=/opt/oozie-reprocessing-manager/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+EnvironmentFile=/etc/oozie-reprocessing/oozie-reprocess.env
+ExecStart=/opt/oozie-reprocessing-manager/backend/.venv/bin/gunicorn -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000 app.main:app
+TimeoutStartSec=30
+TimeoutStopSec=30
 Restart=always
 RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

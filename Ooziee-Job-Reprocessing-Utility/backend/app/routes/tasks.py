@@ -15,6 +15,8 @@ def cancel_task(task_id: int, db: Session = Depends(get_db), _=Depends(require_r
         raise HTTPException(status_code=404, detail="task not found")
     if t.status in ("SUCCESS","FAILED","CANCELED","SKIPPED"):
         return {"status": t.status}
+    if t.status == "RUNNING":
+        raise HTTPException(status_code=409, detail="running task cannot be canceled directly")
     t.status = "CANCELED"
     t.ended_at = datetime.utcnow()
     db.commit()
@@ -26,8 +28,9 @@ def retry_task(task_id: int, db: Session = Depends(get_db), _=Depends(require_ro
     t = db.query(models.Task).filter(models.Task.id==task_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="task not found")
+    if t.status == "RUNNING":
+        raise HTTPException(status_code=409, detail="running task cannot be retried")
     t.status = "PENDING"
-    t.attempt = int(t.attempt or 0) + 1
     t.stdout = ""
     t.stderr = ""
     t.exit_code = None
