@@ -1,7 +1,10 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON
-from sqlalchemy.orm import relationship
 from datetime import datetime
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 from .db import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -23,9 +26,10 @@ class Plan(Base):
     max_concurrency = Column(Integer, default=1)
     created_by = Column(String(128), default="")
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     tasks = relationship("Task", back_populates="plan", cascade="all, delete-orphan")
+
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -45,7 +49,7 @@ class Task(Base):
     refresh = Column(Boolean, default=False)
     failed = Column(Boolean, default=False)
 
-    extra_props = Column(JSON, default=dict)
+    extra_props = Column(JSON, default=lambda: {})
 
     status = Column(String(32), nullable=False, default="PENDING")
     attempt = Column(Integer, default=0)
