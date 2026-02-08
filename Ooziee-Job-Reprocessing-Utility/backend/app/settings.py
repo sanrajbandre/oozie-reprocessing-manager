@@ -42,6 +42,13 @@ class Settings(BaseSettings):
         if self.jwt_expire_minutes < 5:
             raise RuntimeError("JWT_EXPIRE_MINUTES must be >= 5")
 
+        db_url_lower = self.db_url.strip().lower()
+        if db_url_lower.startswith("mysql"):
+            if not db_url_lower.startswith("mysql+pymysql://"):
+                raise RuntimeError("DB_URL for MySQL must use mysql+pymysql://")
+            if "charset=utf8mb4" not in db_url_lower:
+                raise RuntimeError("DB_URL for MySQL must include charset=utf8mb4")
+
         if secure_mode:
             if len(self.jwt_secret.strip()) < 24 or self.jwt_secret == "change-me-in-production":
                 raise RuntimeError("JWT_SECRET is too weak for production mode")

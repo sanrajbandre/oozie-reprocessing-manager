@@ -1,4 +1,5 @@
 import logging
+import re
 from contextlib import asynccontextmanager
 
 import redis
@@ -25,6 +26,34 @@ logging.basicConfig(
 )
 
 
+def _parse_major(version: str) -> int:
+    match = re.match(r"^\s*(\d+)", version)
+    return int(match.group(1)) if match else 0
+
+
+def _check_mysql_compatibility(db: Session) -> dict:
+    row = db.execute(text("SELECT VERSION()")).scalar()
+    version = str(row or "").strip()
+    lower_version = version.lower()
+
+    details = {
+        "database_backend": "mysql",
+        "database_version": version or "unknown",
+    }
+
+    if "mariadb" in lower_version:
+        details["database_engine"] = "mariadb-compatible"
+        details["mysql8_compatible"] = True
+        return details
+
+    details["database_engine"] = "mysql"
+    major = _parse_major(version)
+    details["mysql8_compatible"] = major >= 8
+    if major < 8:
+        raise RuntimeError(f"MySQL 8.0+ is required. Detected: {version}")
+    return details
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validate_runtime()
@@ -34,6 +63,14 @@ async def lifespan(app: FastAPI):
 
     db: Session = SessionLocal()
     try:
+        if engine.url.get_backend_name() == "mysql":
+            db_info = _check_mysql_compatibility(db)
+            logger.info(
+                "Database check passed: %s (%s)",
+                db_info.get("database_engine"),
+                db_info.get("database_version"),
+            )
+
         if settings.bootstrap_admin_enabled and db.query(models.User).count() == 0:
             u = models.User(
                 username=settings.bootstrap_admin_user,
@@ -83,6 +120,9 @@ def ready():
     try:
         db.execute(text("SELECT 1"))
         checks["database"] = "ok"
+        checks["database_backend"] = engine.url.get_backend_name()
+        if checks["database_backend"] == "mysql":
+            checks.update(_check_mysql_compatibility(db))
     except Exception as exc:
         checks["database"] = f"error: {exc.__class__.__name__}"
     finally:
